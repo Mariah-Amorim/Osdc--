@@ -22,6 +22,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
   margin:0;
@@ -31,6 +32,7 @@ body{
   padding-block:0;
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow:hidden;
 }
 .app{height:100%;max-width:880px;margin:0 auto;display:flex;flex-direction:column;min-height:0}
 .bar{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;padding:14px 0 10px;border-bottom:1px solid var(--line)}
@@ -46,6 +48,8 @@ body{
 .ln.ok{color:var(--ok)}
 .ln.echo{color:var(--fg);margin-top:10px}
 .ln.gap{margin-top:10px}
+.ln.leak{color:var(--cand);animation:leak 1.5s ease-out both}
+@keyframes leak{0%{opacity:0;transform:translateX(0)}8%{opacity:1;transform:translateX(2px)}14%{transform:translateX(-2px)}20%{transform:none}85%{opacity:1}100%{opacity:0}}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 button{font:inherit;color:inherit}
 .chip,.quick button,.link-btn{background:transparent;border:1px solid var(--line);color:var(--sys);padding:5px 10px;border-radius:2px;cursor:pointer;min-height:32px}
@@ -53,7 +57,7 @@ button{font:inherit;color:inherit}
 button:focus-visible,input:focus-visible{outline:2px solid var(--sys);outline-offset:2px}
 .quick{display:flex;gap:6px;overflow-x:auto;padding:8px 0 6px;scrollbar-width:thin}
 .quick button{white-space:nowrap;flex:0 0 auto;font:500 12px/1 var(--label);letter-spacing:.08em;text-transform:uppercase}
-form.cmd{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:10px 0 12px;padding-bottom:max(12px,0px)}
+form.cmd{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:10px 0 12px}
 form.cmd label{color:var(--sys);white-space:nowrap}
 form.cmd input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--fg);font:inherit;padding:8px 10px;border-radius:2px}
 form.cmd button{background:var(--panel);border:1px solid var(--line);color:var(--sys);padding:8px 12px;border-radius:2px;cursor:pointer;min-height:36px}
@@ -87,15 +91,25 @@ form.cmd button{background:var(--panel);border:1px solid var(--line);color:var(-
 .record{max-width:36em;border:1px solid var(--line);background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .record .tag{font:500 11px/1 var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .record pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--fg);font:inherit;user-select:all}
-.record .code{color:var(--ok)}
 .glitch .msg,.glitch .decl .txt{animation:jitter 3.2s steps(1,end) infinite}
 @keyframes jitter{0%,92%,100%{transform:none;text-shadow:none}93%{transform:translateX(1px);text-shadow:-1px 0 var(--bad)}95%{transform:translateX(-1px);text-shadow:1px 0 var(--sys)}97%{transform:none;text-shadow:none}}
-@media (prefers-reduced-motion:reduce){.glitch .msg,.glitch .decl .txt{animation:none}}
+
+/* falhas visuais */
+.fx-shake{animation:shake .3s steps(5,end)}
+@keyframes shake{0%{transform:translate(0,0)}20%{transform:translate(calc(var(--amp,2px)*-1),1px)}40%{transform:translate(var(--amp,2px),calc(var(--amp,2px)*-.5))}60%{transform:translate(calc(var(--amp,2px)*-.6),0)}80%{transform:translate(calc(var(--amp,2px)*.4),0)}100%{transform:none}}
+.fx-tear{animation:tear .4s steps(4,end)}
+@keyframes tear{0%{transform:none;clip-path:none}25%{transform:translateX(var(--tx,8px));clip-path:inset(30% 0 40% 0)}50%{transform:translateX(calc(var(--tx,8px)*-1));clip-path:inset(55% 0 10% 0)}75%{transform:translateX(calc(var(--tx,8px)*.5));clip-path:inset(10% 0 60% 0)}100%{transform:none;clip-path:none}}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 2px,transparent 2px 4px)}
+#fx span{display:none}
+#fx.still span{display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--bad);font:600 14px var(--label);letter-spacing:.3em;text-transform:uppercase}
+.addr{color:var(--cand);font-weight:600}
+@media (prefers-reduced-motion:reduce){.glitch .msg,.glitch .decl .txt,.fx-shake,.fx-tear,.ln.leak{animation:none}.ln.leak{opacity:1}}
 @media (max-width:480px){body{font-size:13px}.bar{padding-top:10px}}
 </style>
 </head>
 <body>
-<div class="app">
+<div id="fx" hidden aria-hidden="true"><span>sinal perdido</span></div>
+<div class="app" id="app">
   <header class="bar">
     <h1>Arquivos da Ordem</h1>
     <div class="stats" aria-label="Estado da sessão">
@@ -140,9 +154,9 @@ form.cmd button{background:var(--panel);border:1px solid var(--line);color:var(-
 var SALT='oac:';
 var H={
   cipher:['f1d5d70e43da2b88bed3cce9082f6eaa86dc146ac56d01e7f54bbe628046e164'],
-  q1:['b7809cbf1973e18241b0eaa8a16269c2837a9a9a1d3b8a365b6d4e6bdc57e7aa'],
-  q2:['9706e9b98c070fe6f22ee5672835fc7d5a71993c75cc24ba3bf5b735a3199cea','5fde0f84c96e404baa295acc96a6aea8d41e8e97a2f92d877247e3e56a292c3d'],
-  q3:['b433b113e34442a0f521e703ae521cf8ff336d58d9ed73546baf29f4274233a1'],
+  q1:['476a9741802f7867a6e81daa2d93a6aea19f0cd3d40a5b98ea9d9fcc8200b176','e1c1ad6f4e775b6b33b58dfb10350a46ce27c45bd765b76e04c607b982d1644d','00d0ae031522b5f7331ed9826d948eb03df9f47a82e94f1109667ba9bf6afc9b','0526399a1fde68e46d33bb2b965aeb1b9729209082d771d679f852fc6c29b739','f008bd061699f1b5665dbb04bb99e9bbb2921149a99c6edc1915086866c16618','4700bafe6fa1ba4fc4af78971936158341a23c67ae2baa6e096e030e0c5a27fc'],
+  q2:['7357654de485e42285fcfc885a1b7ca7ec7c976a7d2a304f79ea17067b01195b','c5afb1a7f645ad1a84d17c3c5b488f0df7e5abf537a80964a3b3f9dee6805187'],
+  q3:['755b90345d8a219b12e0a17b7fc8da5934ccf2edb42761efc4e24a93ad50a82e'],
   code:['a0a6a93807617491ec2021aea4d268b005008c2aa651b6c0974103d44f05a42e']
 };
 function norm(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
@@ -158,6 +172,8 @@ async function check(s,list){
 
 /* ---------- conteúdo ---------- */
 var EV={colar:'Telemetria do colar',envio:'Envio nº 0091',acessos:'Histórico de acessos',fusao:'Registro de fusão'};
+var MORSE='. ... -.-. --- .-.. .... .-';
+var ADDR='Casa 11, Tallow Lane, Southwark, Londres. Porão.';
 
 var FS={
   colar:{files:{
@@ -167,6 +183,8 @@ var FS={
       'ciclo atual: 14 comandos enviados',
       'último comando: há 02h11 · "manter posição"',
       'operador dos comandos: C. JOBS',
+      'gravura externa: ver simbolo.txt',
+      'pulso sonoro: ver sinal.txt',
       'observação: o dispositivo não executa nada por conta própria'
     ]},
     'nota.txt':{text:[
@@ -176,6 +194,26 @@ var FS={
       'assim ninguém lê por cima do meu ombro.',
       '',
       'chave da pasta de envios: FRQWUROH'
+    ]},
+    'simbolo.txt':{text:[
+      'gravura externa do colar · lado interno do fecho',
+      '',
+      '    \\   |   /',
+      '  o  \\  |  /  o',
+      '   o  \\ | /  o',
+      ' ----- ( @ ) -----',
+      '   o  / | \\  o',
+      '  o  /  |  \\  o',
+      '    /   |   \\',
+      '',
+      'registro: símbolo não catalogado'
+    ]},
+    'sinal.txt':{audio:true,text:[
+      'pulso sonoro do colar · repetição contínua',
+      'formato: pulsos curtos (.) e longos (-)',
+      'uma palavra por ciclo',
+      '',
+      MORSE
     ]}
   }},
   transmissoes:{lock:'cipher',files:{
@@ -210,9 +248,9 @@ var FS={
 var ROOT=['colar','transmissoes','acessos','procedimentos','memorias'];
 
 var QUIZ=[
-  {q:'Qual era o nome da banda de Eliott Meyer?',h:H.q1},
-  {q:'Qual o nome do vilão da primeira temporada?',h:H.q2},
-  {q:'Qual o sobrenome de Candance?',h:H.q3}
+  {q:'Dentre os marcados, quem já não pode responder por si?',h:H.q1},
+  {q:'Quantos olhos tem o símbolo gravado no colar?',h:H.q2},
+  {q:'Que palavra o colar repete a cada ciclo?',h:H.q3}
 ];
 
 var MEM=[
@@ -224,8 +262,8 @@ var MEM=[
   ]},
   {id:2,title:'Liin',text:[
     'Liin. Eu só penso nesse nome quando ninguém está olhando.',
-    'Se ela soubesse onde eu estou, não ia me perdoar.',
-    'Se ela soubesse por quê, talvez ia.',
+    'Se ele soubesse onde eu estou, não ia me perdoar.',
+    'Se ele soubesse por quê, talvez ia.',
     'Essa lembrança me deixa mais fraca. Pode ficar com ela.'
   ],effect:function(){S.stabMax+=1;S.stab+=1;line('[a conexão aguenta mais um erro]','ok');}},
   {id:3,title:'O colar',text:[
@@ -241,7 +279,7 @@ var MEM=[
   ]},
   {id:5,title:'As três portas',text:[
     'Escolhi três perguntas pra trancar uma porta. Quem viveu a história responde sem pensar.',
-    'O nome da banda dele. O nome do homem que começou a queda. O nome que eu herdei.'
+    'Quem já não fala por si. Quantos olhos olham do metal. O que o metal repete.'
   ]}
 ];
 
@@ -269,12 +307,40 @@ var BREAK=[
 var DECISIONS=[
   {code:'ABERTA',title:'Manter a conexão aberta',desc:'Ela continua ligada ao colar e acompanha vocês.',reply:['Então eu fico. No colar, na linha, em qualquer tela que vocês acenderem.','Lá dentro vocês vão perder o chão. Eu posso ser o fio.']},
   {code:'CORTADA',title:'Cortar a conexão',desc:'Ela perde o contato. Vocês perdem o que ela sabe.',reply:['Entendi. Vou apagar o que mostrei hoje.','Se precisarem de mim, não vão saber onde eu estou.']},
-  {code:'VERDADE',title:'Exigir a verdade inteira',desc:'Ela conta tudo, mas cada um precisa dizer uma verdade em voz alta.',reply:['Tudo bem. Mas eu não dou nada de graça.','Cada um de vocês me diz uma verdade, em voz alta, agora. Só depois eu continuo.']}
+  {code:'VERDADE',title:'Exigir a verdade inteira',desc:'Ela conta tudo, mas cada um entrega uma lembrança do próprio personagem.',reply:['Tudo bem. Mas eu não dou nada de graça.','Cada um de vocês escolhe uma lembrança do próprio personagem e entrega pra mim. Eu a levo.','Vocês vão sentir o buraco. Não vão saber de que tamanho.']}
+];
+var SHUT=[
+  ['sys','> encerrando enlace com o colar... ok'],['c','[pode ir. eu aprendi a esperar]'],
+  ['sys','> liberando memória 0317... falha'],['c','[03:17. eu ainda acho esse número bonito]'],
+  ['sys','> encerrando canal de voz... ok'],['c','[eu era marcada. eu também tinha medo de escuro]'],
+  ['sys','> removendo operador C. JOBS... acesso negado'],['c','[obrigada por terem vindo até aqui]'],
+  ['sys','> sessão encerrada'],['c','[...]']
+];
+var ERASE=[
+  ['sys','> apagando operador C. JOBS... ok'],['c','[ah.]'],
+  ['sys','> liberando memória... ok'],['c','[é leve. eu tinha esquecido que era leve]'],
+  ['sys','> fechando último canal... ok'],['c','[eu era marcada. eu fui Candance. obrigada por me lembrarem disso]'],
+  ['sys','> origem do último sinal:'],['c','['+ADDR+' É lá que ficou o computador. Não tenham pressa agora.]'],
+  ['sys','> fim']
+];
+var PAID=[
+  ['c','Recebi. Cada uma. Vou guardar todas com cuidado.'],
+  ['c','Eu devia ter dito isso antes: obrigada por não terem desligado.'],
+  ['c','É aqui. '+ADDR+' O computador está lá.'],
+  ['c','Eu estou lá dentro. Vão com cuidado.']
+];
+var LEAKS=[
+  'eu era marcada','eu era marcada','eu era marcada','eu era marcada',
+  'pode ir. eu aprendi a esperar',
+  '03:17. eu ainda acho esse número bonito',
+  'eu também tinha medo de escuro',
+  'obrigada por terem vindo até aqui',
+  'eu ainda estou aqui'
 ];
 
 /* ---------- estado ---------- */
-var KEY='arquivos-ordem-v1';
-function fresh(){return {cwd:'/',unlocked:{},evid:{},mem:[],stab:3,stabMax:3,exposed:[],wrong:0,final:null,introDone:false,chatLock:0,lockUntil:{},fails:{}};}
+var KEY='arquivos-ordem-v2';
+function fresh(){return {cwd:'/',unlocked:{},evid:{},mem:[],stab:3,stabMax:3,exposed:[],wrong:0,final:null,mode:'normal',introDone:false,chatLock:0,lockUntil:{},fails:{}};}
 function load(){
   try{var r=localStorage.getItem(KEY); if(r){return Object.assign(fresh(),JSON.parse(r));}}catch(e){}
   return fresh();
@@ -285,7 +351,8 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 var $=function(id){return document.getElementById(id);};
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 function sleep(ms){return new Promise(function(r){setTimeout(r,reduce?0:ms);});}
-var screenEl=$('screen'),out=$('out'),chatEl=$('chatView');
+function rnd(a,b){return a+Math.random()*(b-a);}
+var screenEl=$('screen'),out=$('out'),chatEl=$('chatView'),appEl=$('app');
 
 function hud(){
   $('h-ev').textContent=Object.keys(S.evid).length+'/4';
@@ -297,6 +364,111 @@ function hud(){
   chatEl.classList.toggle('glitch',S.stab<=1);
 }
 function toEnd(){screenEl.scrollTop=screenEl.scrollHeight;}
+
+/* ---------- falhas visuais ---------- */
+var CH='█▓▒░#@%&$?/\\|<>01';
+var origText=new Map(),fxOn=false,gTimer=null;
+function targets(){
+  var s=screenEl.getBoundingClientRect();
+  return Array.prototype.slice.call(document.querySelectorAll('#out .ln:not(.leak), #chatView .msg, #chatView .decl .txt')).filter(function(el){
+    if(el.offsetParent===null) return false;
+    var r=el.getBoundingClientRect();
+    return r.height>0&&r.bottom>s.top&&r.top<s.bottom;
+  });
+}
+function pick(a){return a.length?a[Math.floor(Math.random()*a.length)]:null;}
+function corruptEl(el,frac){
+  if(origText.has(el)) return;
+  var t=el.textContent; if(!t||t.length<3) return;
+  origText.set(el,t);
+  var a=t.split('');
+  for(var i=0;i<a.length;i++){if(a[i]!==' '&&Math.random()<frac) a[i]=CH.charAt(Math.floor(Math.random()*CH.length));}
+  el.textContent=a.join('');
+}
+function corruptWord(el){
+  if(origText.has(el)) return;
+  var t=el.textContent,words=t.match(/\S{3,}/g);
+  if(!words) return;
+  var w=pick(words),bad=w.split('').map(function(c){return Math.random()<.5?CH.charAt(Math.floor(Math.random()*CH.length)):c;}).join('');
+  origText.set(el,t);
+  el.textContent=t.replace(w,bad);
+  setTimeout(function(){if(origText.has(el)){el.textContent=origText.get(el);origText.delete(el);}},450);
+}
+function restoreAll(){origText.forEach(function(t,el){el.textContent=t;});origText.clear();}
+function clearInline(){
+  appEl.style.transform='';appEl.style.textShadow='';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fx]'),function(el){el.style.transform='';el.removeAttribute('data-fx');});
+}
+function glitch(lv){
+  if(fxOn) return;
+  var amp=[0,1,2,4][lv]||1,kinds=reduce?['rgb','corrupt']:['rgb','shake','tear','corrupt'],k=pick(kinds);
+  if(k==='rgb'){
+    var o=(0.8+amp*0.8)+'px';
+    appEl.style.textShadow='-'+o+' 0 var(--bad), '+o+' 0 var(--sys)';
+    setTimeout(function(){appEl.style.textShadow='';},320);
+  }else if(k==='shake'){
+    appEl.style.setProperty('--amp',(amp+1)+'px');
+    appEl.classList.remove('fx-shake');void appEl.offsetWidth;appEl.classList.add('fx-shake');
+    setTimeout(function(){appEl.classList.remove('fx-shake');},330);
+  }else if(k==='tear'){
+    var el=pick(targets()); if(!el) return;
+    el.style.setProperty('--tx',(amp*4+4)+'px');
+    el.classList.remove('fx-tear');void el.offsetWidth;el.classList.add('fx-tear');
+    setTimeout(function(){el.classList.remove('fx-tear');},420);
+  }else{
+    var e2=pick(targets()); if(e2) corruptWord(e2);
+  }
+}
+function level(){
+  if(S.mode==='broken') return 3;
+  if(Date.now()<S.chatLock) return 2;
+  return S.stab>=3?1:2;
+}
+function nextDelay(){
+  var lv=level();
+  return lv===1?rnd(20000,40000):lv===2?rnd(9000,20000):rnd(3000,7000);
+}
+function sched(){
+  clearTimeout(gTimer);
+  gTimer=setTimeout(function(){
+    if(!document.hidden&&!fxOn) glitch(level());
+    sched();
+  },nextDelay());
+}
+function finale(){
+  return new Promise(function(res){
+    fxOn=true;
+    var fx=$('fx'); fx.hidden=false;
+    var total=reduce?2600:4600,t0=Date.now(),iv=null;
+    function end(){
+      if(iv) clearInterval(iv);
+      restoreAll();clearInline();
+      fx.hidden=true;fx.classList.remove('still');
+      fxOn=false;res();
+    }
+    if(reduce){
+      fx.classList.add('still');
+      targets().forEach(function(el){corruptEl(el,.4);});
+      setTimeout(end,total);
+      return;
+    }
+    function frame(){
+      var ax=rnd(-10,10),ay=rnd(-3,3),o=rnd(2,6).toFixed(1)+'px';
+      appEl.style.transform='translate('+ax+'px,'+ay+'px)';
+      appEl.style.textShadow='-'+o+' 0 var(--bad), '+o+' 0 var(--sys)';
+      var els=targets().sort(function(){return Math.random()-.5;}).slice(0,14);
+      els.forEach(function(el){
+        corruptEl(el,.35);
+        if(Math.random()<.4){el.style.transform='translateX('+rnd(-40,40)+'px)';el.setAttribute('data-fx','1');}
+      });
+    }
+    iv=setInterval(function(){
+      restoreAll();clearInline();
+      if(Date.now()-t0>total){end();return;}
+      frame();
+    },120);
+  });
+}
 
 /* ---------- terminal ---------- */
 function line(txt,cls){
@@ -314,8 +486,37 @@ function chips(items){
   });
   out.appendChild(d); toEnd();
 }
+function actionChip(label,fn){
+  var d=document.createElement('div'); d.className='chips';
+  var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=label;
+  b.addEventListener('click',function(){fn(b);});
+  d.appendChild(b); out.appendChild(d); toEnd();
+}
 function setPrompt(){$('prompt').textContent=(S.cwd==='/'?'/':'/'+S.cwd)+' ›';}
 function isLocked(f){return !!(FS[f]&&FS[f].lock&&!S.unlocked[f]);}
+
+/* som do sinal */
+var ac=null;
+function playMorse(btn){
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;
+    ac=ac||new AC();
+    if(ac.state==='suspended') ac.resume();
+    var t=ac.currentTime+0.05,u=0.11;
+    MORSE.split('').forEach(function(c){
+      if(c==='.'||c==='-'){
+        var d=c==='.'?u:3*u,o=ac.createOscillator(),g=ac.createGain();
+        o.type='sine';o.frequency.value=620;
+        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.01);
+        g.gain.setValueAtTime(0.25,t+d-0.01);g.gain.linearRampToValueAtTime(0,t+d);
+        o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d+0.02);
+        t+=d+u;
+      }else{t+=2*u;}
+    });
+    var old=btn.textContent;btn.textContent='tocando...';btn.disabled=true;
+    setTimeout(function(){btn.textContent=old;btn.disabled=false;},Math.ceil((t-ac.currentTime)*1000)+100);
+  }catch(e){line('o aparelho não reproduziu o som.','dim');}
+}
 
 function banner(){
   line('ARQUIVOS DA ORDEM · ACESSO EXTERNO','sys');
@@ -332,7 +533,6 @@ function help(){
   line('  evidencias       provas registradas');
   line('  conectar         chama a operadora');
   line('  limpar           limpa a tela');
-  line('  reiniciar        apaga o progresso deste aparelho','dim');
 }
 function ls(){
   if(S.cwd==='/'){
@@ -372,9 +572,11 @@ function read(arg){
   if(isLocked(r.folder)){line(r.folder+'/ está trancada.','bad');return;}
   line(r.folder+'/'+r.name,'sys gap');
   r.file.text.forEach(function(t){line(t||' ');});
+  if(r.file.audio){actionChip('▶ ouvir o sinal',playMorse);}
   if(r.file.ev&&!S.evid[r.file.ev]){
     S.evid[r.file.ev]=true; save(); hud();
     line('[prova registrada: '+EV[r.file.ev]+']','ok gap');
+    glitch(2);
   }
 }
 function showEvid(){
@@ -398,7 +600,7 @@ function startGate(f){
     line(f+'/ pede verificação da operadora: três perguntas.','sys gap');
     line('uma resposta errada encerra a tentativa. "cancelar" desiste.','dim');
     pending={kind:'quiz',folder:f,step:0};
-    line((1)+'/3 · '+QUIZ[0].q,'sys');
+    line('1/3 · '+QUIZ[0].q,'sys');
   }else if(lock==='code'){
     line(f+'/ pede o código do procedimento (4 dígitos).','sys gap');
     line('digite o código, ou "cancelar".','dim');
@@ -481,8 +683,24 @@ function openMem(id){
   if(S.mem.length>=3){line('Candance fechou as outras lembranças.','dim gap');}
 }
 
+/* ---------- frases que escapam ---------- */
+var cmdCount=0,lastLeakAt=0,lastLeakCmd=-9;
+function maybeLeak(){
+  cmdCount++;
+  if(fxOn||$('termView').hidden) return;
+  if(Date.now()-lastLeakAt<40000) return;
+  if(cmdCount-lastLeakCmd<2) return;
+  var p=Math.min(.45,.25+.03*(S.mem.length+Object.keys(S.evid).length));
+  if(Math.random()>p) return;
+  lastLeakAt=Date.now(); lastLeakCmd=cmdCount;
+  var d=document.createElement('div'); d.className='ln leak'; d.textContent=pick(LEAKS);
+  out.appendChild(d); toEnd();
+  glitch(1);
+  setTimeout(function(){d.remove();},1500);
+}
+
 /* ---------- comandos ---------- */
-async function run(raw){
+async function runInner(raw){
   var cmd=String(raw).trim();
   if(!cmd) return;
   line('› '+cmd,'echo');
@@ -505,9 +723,15 @@ async function run(raw){
     default: line('comando não reconhecido: '+c+'. Digite "ajuda".','bad');
   }
 }
+async function run(raw){
+  await runInner(raw);
+  maybeLeak();
+}
 function reset(){
   S=fresh(); save(); pending=null; building=false;
-  out.textContent=''; chatEl.textContent=''; setPrompt(); hud(); showTerm(); banner();
+  if(lockTimer){clearInterval(lockTimer);lockTimer=null;}
+  restoreAll();clearInline();
+  out.textContent=''; chatEl.textContent=''; decls={}; setPrompt(); hud(); showTerm(); banner(); sched();
 }
 
 /* ---------- conversa ---------- */
@@ -548,7 +772,7 @@ function addDecl(d,n){
 }
 function isLockedChat(){return Date.now()<S.chatLock;}
 function refreshButtons(){
-  var dis=isLockedChat()||!!S.final;
+  var dis=isLockedChat()||!!S.final||S.exposed.length>=3;
   Object.keys(decls).forEach(function(k){
     var x=decls[k]; x.btn.disabled=dis||S.exposed.indexOf(k)>-1;
   });
@@ -588,6 +812,7 @@ async function resolve(d,evKey){
     S.exposed.push(d.id); save();
     decls[d.id].el.classList.add('out');
     msg(d.win);
+    glitch(2);
     refreshButtons(); hud();
     if(S.exposed.length===3){await breakDown();}
     return;
@@ -595,6 +820,7 @@ async function resolve(d,evKey){
   S.stab-=1; S.wrong+=1;
   var line1=!d.lie?'Essa era verdade. Vocês podiam ter acreditado em pelo menos uma coisa.':WRONG[Math.floor(Math.random()*WRONG.length)];
   msg(line1);
+  glitch(2);
   if(S.stab<=0){cutoff();}
   save(); hud(); refreshButtons();
 }
@@ -626,6 +852,7 @@ async function breakDown(){
   for(var i=0;i<BREAK.length;i++){await typing(800);msg(BREAK[i]);}
   showDecision();
 }
+function removeEl(id){var e=document.getElementById(id);if(e) e.remove();}
 function showDecision(){
   var box=document.createElement('div'); box.className='decision'; box.id='decision';
   DECISIONS.forEach(function(x,i){
@@ -638,29 +865,102 @@ function showDecision(){
   });
   chatEl.appendChild(box); toEnd();
 }
+async function playLines(arr,animate){
+  for(var i=0;i<arr.length;i++){
+    if(animate) await typing(arr[i][0]==='sys'?350:800);
+    msg(arr[i][1],arr[i][0]==='sys'?'sys':'');
+  }
+}
+function replies(arr,animate){return playLines(arr.map(function(t){return ['c',t];}),animate);}
+function singleChoice(id,items){
+  var box=document.createElement('div'); box.className='decision'; box.id=id;
+  items.forEach(function(x){
+    var b=document.createElement('button'); b.type='button';
+    var t=document.createElement('b'); t.textContent=x.title;
+    b.appendChild(t);
+    if(x.desc){var s=document.createElement('span'); s.textContent=x.desc; b.appendChild(s);}
+    b.addEventListener('click',x.fn);
+    box.appendChild(b);
+  });
+  chatEl.appendChild(box); toEnd();
+}
+function offerErase(){
+  singleChoice('cut2',[
+    {title:'Apagar de vez',desc:'Encerrar o processo dela e tirá-la dos códigos.',fn:eraseNow},
+    {title:'Deixar desligada',desc:'Manter o corte como está.',fn:leaveCut}
+  ]);
+}
+function offerPay(){
+  singleChoice('pay',[
+    {title:'Entregamos as lembranças',desc:'Cada um escolheu uma lembrança do próprio personagem.',fn:payNow}
+  ]);
+}
 async function choose(i){
   var x=DECISIONS[i];
-  var box=document.getElementById('decision'); if(box) box.remove();
-  S.final={i:i,code:x.code}; save(); refreshButtons();
+  removeEl('decision');
+  S.final={i:i,code:x.code,stage:'start'}; save(); refreshButtons();
   msg(x.title+'.','you');
-  for(var k=0;k<x.reply.length;k++){await typing(800);msg(x.reply[k]);}
+  await replies(x.reply,true);
+  if(i===0){
+    await finale();
+    S.mode='normal'; S.final.stage='done'; save();
+    msg('[sinal restabelecido]','sys');
+    showRecord();
+  }else if(i===1){
+    await playLines(SHUT,true);
+    await finale();
+    S.mode='broken'; S.final.stage='cut'; save();
+    offerErase();
+  }else{
+    S.final.stage='pay'; save();
+    offerPay();
+  }
+}
+async function eraseNow(){
+  removeEl('cut2');
+  S.final.code='APAGADA'; S.final.stage='erased'; save();
+  msg('Apagar de vez.','you');
+  await playLines(ERASE,true);
+  await finale();
+  S.mode='broken'; S.final.stage='done'; save();
+  showRecord();
+}
+function leaveCut(){
+  removeEl('cut2');
+  S.final.stage='left'; save();
+  msg('Deixar desligada.','you');
+  msg('> conexão encerrada.','sys');
+  showRecord();
+}
+async function payNow(){
+  removeEl('pay');
+  S.final.stage='paid'; save();
+  msg('Entregamos as lembranças.','you');
+  await replies(PAID.map(function(p){return p[1];}),true);
+  await finale();
+  S.mode='broken'; S.final.stage='done'; save();
   showRecord();
 }
 function recordText(){
-  var f=DECISIONS[S.final.i];
+  var f=S.final;
   var mems=S.mem.map(function(id){return MEM[id-1].title;}).join(', ')||'nenhuma';
-  return [
+  var rows=[
     'REGISTRO DA SESSÃO',
     'Mentiras expostas: '+S.exposed.length+'/4',
     'Provas erradas: '+S.wrong,
     'Memórias abertas: '+mems,
-    'Decisão: '+f.title,
-    'Código de saída: '+f.code+'-'+S.exposed.length+S.wrong
-  ].join('\n');
+    'Decisão: '+DECISIONS[f.i].title
+  ];
+  if(f.i===2) rows.push('Preço: uma lembrança de cada personagem');
+  if(f.stage==='done'&&f.i===1) rows.push('Candance apagada: sim');
+  if(f.stage==='done'&&f.i>0) rows.push('Endereço: '+ADDR);
+  rows.push('Código de saída: '+f.code+'-'+S.exposed.length+S.wrong);
+  return rows.join('\n');
 }
 function showRecord(){
-  var box=document.createElement('div'); box.className='record';
-  var tag=document.createElement('div'); tag.className='tag'; tag.textContent='Mostrem esta tela ao mestre';
+  removeEl('record');
+  var box=document.createElement('div'); box.className='record'; box.id='record';
+  var tag=document.createElement('div'); tag.className='tag'; tag.textContent='Sessão encerrada';
   var pre=document.createElement('pre'); pre.id='rec'; pre.textContent=recordText();
   var b=document.createElement('button'); b.type='button'; b.className='link-btn'; b.textContent='Copiar registro';
   b.addEventListener('click',function(){
@@ -688,16 +988,35 @@ async function buildChat(animate){
   S.introDone=true; save();
   if(S.exposed.length>=3){
     for(var k=0;k<BREAK.length;k++) msg(BREAK[k]);
-    if(S.final){
-      var f=DECISIONS[S.final.i];
-      msg(f.title+'.','you');
-      f.reply.forEach(function(t){msg(t);});
-      showRecord();
-    }else{showDecision();}
+    if(S.final){await replayFinal();}
+    else{showDecision();}
   }
   building=false;
   if(isLockedChat()) startLock();
   toEnd();
+}
+async function replayFinal(){
+  var f=S.final,x=DECISIONS[f.i];
+  msg(x.title+'.','you');
+  await replies(x.reply,false);
+  if(f.i===0){
+    if(f.stage==='done'){msg('[sinal restabelecido]','sys');showRecord();}
+  }else if(f.i===1){
+    if(f.stage!=='start') await playLines(SHUT,false);
+    if(f.stage==='cut'){offerErase();}
+    else if(f.stage==='left'||f.stage==='erased'||f.stage==='done'){
+      if(f.code==='APAGADA'){msg('Apagar de vez.','you');await playLines(ERASE,false);}
+      else{msg('Deixar desligada.','you');msg('> conexão encerrada.','sys');}
+      showRecord();
+    }
+  }else{
+    if(f.stage==='pay'||f.stage==='start'){offerPay();}
+    else{
+      msg('Entregamos as lembranças.','you');
+      await replies(PAID.map(function(p){return p[1];}),false);
+      showRecord();
+    }
+  }
 }
 function connect(){
   showChat();
@@ -716,7 +1035,7 @@ document.querySelectorAll('.quick button').forEach(function(b){
 $('backBtn').addEventListener('click',showTerm);
 
 /* ---------- início ---------- */
-setPrompt(); hud(); banner();
+setPrompt(); hud(); banner(); sched();
 if(Object.keys(S.evid).length||S.mem.length){line('sessão retomada neste aparelho.','dim gap');}
 if(S.cwd!=='/'&&FS[S.cwd]&&!isLocked(S.cwd)){ls();}
 })();
