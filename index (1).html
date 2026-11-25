@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Arquivos da Ordem</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
+<style>
+/* Layout: uma tela única de terminal (barra de status, saída rolável, linha de comando) que vira conversa quando a Candance atende. Frio e institucional para o sistema, âmbar só para a voz dela. */
+:root{
+  --bg:#0d1214;
+  --panel:#141b1e;
+  --line:#25323a;
+  --fg:#cdd7d5;
+  --dim:#7b8a8a;
+  --sys:#7db3c8;
+  --cand:#e0a96d;
+  --bad:#d9705f;
+  --ok:#8cc79b;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --label:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font:14px/1.55 var(--mono);
+  padding-block:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow:hidden;
+}
+.app{height:100%;max-width:880px;margin:0 auto;display:flex;flex-direction:column;min-height:0}
+.bar{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;padding:14px 0 10px;border-bottom:1px solid var(--line)}
+.bar h1{margin:0;font:600 13px/1 var(--label);letter-spacing:.18em;text-transform:uppercase;color:var(--sys)}
+.stats{display:flex;flex-wrap:wrap;gap:4px 16px;font:500 12px/1.4 var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.stats b{font-family:var(--mono);font-weight:500;letter-spacing:.04em;color:var(--fg);font-variant-numeric:tabular-nums}
+.stats .low{color:var(--bad)}
+.screen{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 0;scroll-behavior:auto}
+.ln{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 2px}
+.ln.sys{color:var(--sys)}
+.ln.dim{color:var(--dim)}
+.ln.bad{color:var(--bad)}
+.ln.ok{color:var(--ok)}
+.ln.echo{color:var(--fg);margin-top:10px}
+.ln.gap{margin-top:10px}
+.ln.leak{color:var(--cand);animation:leak 1.5s ease-out both}
+@keyframes leak{0%{opacity:0;transform:translateX(0)}8%{opacity:1;transform:translateX(2px)}14%{transform:translateX(-2px)}20%{transform:none}85%{opacity:1}100%{opacity:0}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+button{font:inherit;color:inherit}
+.chip,.quick button,.link-btn{background:transparent;border:1px solid var(--line);color:var(--sys);padding:5px 10px;border-radius:2px;cursor:pointer;min-height:32px}
+.chip:hover,.quick button:hover,.link-btn:hover{border-color:var(--sys)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sys);outline-offset:2px}
+.quick{display:flex;gap:6px;overflow-x:auto;padding:8px 0 6px;scrollbar-width:thin}
+.quick button{white-space:nowrap;flex:0 0 auto;font:500 12px/1 var(--label);letter-spacing:.08em;text-transform:uppercase}
+form.cmd{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:10px 0 12px}
+form.cmd label{color:var(--sys);white-space:nowrap}
+form.cmd input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--fg);font:inherit;padding:8px 10px;border-radius:2px}
+form.cmd button{background:var(--panel);border:1px solid var(--line);color:var(--sys);padding:8px 12px;border-radius:2px;cursor:pointer;min-height:36px}
+.foot-chat{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding:10px 0 12px}
+.foot-chat span{color:var(--dim);font-size:12px}
+
+/* conversa */
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{max-width:36em;padding:2px 0 2px 12px;border-left:2px solid var(--cand);color:var(--cand);overflow-wrap:anywhere}
+.msg.sys{border-left-color:var(--line);color:var(--sys);font-size:13px}
+.msg.you{border-left-color:var(--sys);color:var(--fg)}
+.typing{color:var(--dim);font-size:12px;padding-left:14px}
+.decl{max-width:36em;background:var(--panel);border:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.decl .tag{font:500 11px/1 var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.decl .txt{color:var(--cand);overflow-wrap:anywhere}
+.decl.out .txt{text-decoration:line-through;text-decoration-color:var(--bad);color:var(--dim)}
+.decl .row{display:flex;flex-wrap:wrap;gap:6px}
+.decl .contest{background:transparent;border:1px solid var(--line);color:var(--sys);padding:5px 10px;border-radius:2px;cursor:pointer;min-height:32px}
+.decl .contest:hover:not(:disabled){border-color:var(--sys)}
+.decl .contest:disabled{opacity:.4;cursor:not-allowed}
+.picker{display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--line);padding-top:8px}
+.picker .hint{color:var(--dim);font-size:12px}
+.picker button{text-align:left;background:transparent;border:1px solid var(--line);color:var(--fg);padding:6px 10px;border-radius:2px;cursor:pointer;min-height:34px}
+.picker button:hover{border-color:var(--sys);color:var(--sys)}
+.lock{color:var(--bad);font-size:13px;padding-left:12px}
+.decision{display:flex;flex-direction:column;gap:8px;max-width:36em}
+.decision button{text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:10px 12px;border-radius:2px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.decision button:hover{border-color:var(--cand)}
+.decision button b{font:600 13px/1.3 var(--label);letter-spacing:.1em;text-transform:uppercase;color:var(--cand)}
+.decision button span{color:var(--dim);font-size:13px}
+.record{max-width:36em;border:1px solid var(--line);background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.record .tag{font:500 11px/1 var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.record pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--fg);font:inherit;user-select:all}
+.glitch .msg,.glitch .decl .txt{animation:jitter 3.2s steps(1,end) infinite}
+@keyframes jitter{0%,92%,100%{transform:none;text-shadow:none}93%{transform:translateX(1px);text-shadow:-1px 0 var(--bad)}95%{transform:translateX(-1px);text-shadow:1px 0 var(--sys)}97%{transform:none;text-shadow:none}}
+
+/* falhas visuais */
+.fx-shake{animation:shake .3s steps(5,end)}
+@keyframes shake{0%{transform:translate(0,0)}20%{transform:translate(calc(var(--amp,2px)*-1),1px)}40%{transform:translate(var(--amp,2px),calc(var(--amp,2px)*-.5))}60%{transform:translate(calc(var(--amp,2px)*-.6),0)}80%{transform:translate(calc(var(--amp,2px)*.4),0)}100%{transform:none}}
+.fx-tear{animation:tear .4s steps(4,end)}
+@keyframes tear{0%{transform:none;clip-path:none}25%{transform:translateX(var(--tx,8px));clip-path:inset(30% 0 40% 0)}50%{transform:translateX(calc(var(--tx,8px)*-1));clip-path:inset(55% 0 10% 0)}75%{transform:translateX(calc(var(--tx,8px)*.5));clip-path:inset(10% 0 60% 0)}100%{transform:none;clip-path:none}}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 2px,transparent 2px 4px)}
+#fx span{display:none}
+#fx.still span{display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--bad);font:600 14px var(--label);letter-spacing:.3em;text-transform:uppercase}
+.addr{color:var(--cand);font-weight:600}
+@media (prefers-reduced-motion:reduce){.glitch .msg,.glitch .decl .txt,.fx-shake,.fx-tear,.ln.leak{animation:none}.ln.leak{opacity:1}}
+@media (max-width:480px){body{font-size:13px}.bar{padding-top:10px}}
+</style>
+</head>
+<body>
+<div id="fx" hidden aria-hidden="true"><span>sinal perdido</span></div>
+<div class="app" id="app">
+  <header class="bar">
+    <h1>Arquivos da Ordem</h1>
+    <div class="stats" aria-label="Estado da sessão">
+      <span>Provas <b id="h-ev">0/4</b></span>
+      <span>Memórias <b id="h-mem">0/3</b></span>
+      <span>Conexão <b id="h-link">●●●</b></span>
+    </div>
+  </header>
+
+  <main class="screen" id="screen">
+    <section id="termView" aria-label="Terminal">
+      <div id="out" aria-live="polite"></div>
+    </section>
+    <section id="chatView" class="chat" aria-label="Conversa" hidden></section>
+  </main>
+
+  <div id="termBar">
+    <div class="quick" role="group" aria-label="Atalhos">
+      <button type="button" data-cmd="ls">Listar</button>
+      <button type="button" data-cmd="memorias">Memórias</button>
+      <button type="button" data-cmd="evidencias">Provas</button>
+      <button type="button" data-cmd="conectar">Conectar</button>
+      <button type="button" data-cmd="ajuda">Ajuda</button>
+    </div>
+    <form class="cmd" id="cmdForm" autocomplete="off">
+      <label for="cmdIn" id="prompt">/ ›</label>
+      <input id="cmdIn" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-label="Comando">
+      <button type="submit">Enviar</button>
+    </form>
+  </div>
+  <div id="chatBar" class="foot-chat" hidden>
+    <button type="button" class="link-btn" id="backBtn">← Terminal</button>
+    <span>As provas registradas no terminal aparecem aqui.</span>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- respostas protegidas (SHA-256 com sal) ---------- */
+var SALT='oac:';
+var H={
+  cipher:['f1d5d70e43da2b88bed3cce9082f6eaa86dc146ac56d01e7f54bbe628046e164'],
+  q1:['476a9741802f7867a6e81daa2d93a6aea19f0cd3d40a5b98ea9d9fcc8200b176','e1c1ad6f4e775b6b33b58dfb10350a46ce27c45bd765b76e04c607b982d1644d','00d0ae031522b5f7331ed9826d948eb03df9f47a82e94f1109667ba9bf6afc9b','0526399a1fde68e46d33bb2b965aeb1b9729209082d771d679f852fc6c29b739','f008bd061699f1b5665dbb04bb99e9bbb2921149a99c6edc1915086866c16618','4700bafe6fa1ba4fc4af78971936158341a23c67ae2baa6e096e030e0c5a27fc'],
+  q2:['7357654de485e42285fcfc885a1b7ca7ec7c976a7d2a304f79ea17067b01195b','c5afb1a7f645ad1a84d17c3c5b488f0df7e5abf537a80964a3b3f9dee6805187'],
+  q3:['755b90345d8a219b12e0a17b7fc8da5934ccf2edb42761efc4e24a93ad50a82e'],
+  code:['a0a6a93807617491ec2021aea4d268b005008c2aa651b6c0974103d44f05a42e']
+};
+function norm(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
+async function sha(s){
+  var b=new TextEncoder().encode(SALT+norm(s));
+  var d=await crypto.subtle.digest('SHA-256',b);
+  return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+}
+async function check(s,list){
+  if(!norm(s)) return false;
+  try{ return list.indexOf(await sha(s))>-1; }catch(e){ return false; }
+}
+
+/* ---------- conteúdo ---------- */
+var EV={colar:'Telemetria do colar',envio:'Envio nº 0091',acessos:'Histórico de acessos',fusao:'Registro de fusão'};
+var MORSE='. ... -.-. --- .-.. .... .-';
+var ADDR='Casa 11, Tallow Lane, Southwark, Londres. Porão.';
+
+var FS={
+  colar:{files:{
+    'telemetria.log':{ev:'colar',text:[
+      'dispositivo: colar (vínculo: E. MEYER)',
+      'origem do sinal: terminal interno 3',
+      'ciclo atual: 14 comandos enviados',
+      'último comando: há 02h11 · "manter posição"',
+      'operador dos comandos: C. JOBS',
+      'gravura externa: ver simbolo.txt',
+      'pulso sonoro: ver sinal.txt',
+      'observação: o dispositivo não executa nada por conta própria'
+    ]},
+    'nota.txt':{text:[
+      'nota de manutenção · C.J.',
+      '',
+      'tudo que eu tranco, eu desloco três casas no alfabeto.',
+      'assim ninguém lê por cima do meu ombro.',
+      '',
+      'chave da pasta de envios: FRQWUROH'
+    ]},
+    'simbolo.txt':{text:[
+      'gravura externa do colar · lado interno do fecho',
+      '',
+      '    \\   |   /',
+      '  o  \\  |  /  o',
+      '   o  \\ | /  o',
+      ' ----- ( @ ) -----',
+      '   o  / | \\  o',
+      '  o  /  |  \\  o',
+      '    /   |   \\',
+      '',
+      'registro: símbolo não catalogado'
+    ]},
+    'sinal.txt':{audio:true,text:[
+      'pulso sonoro do colar · repetição contínua',
+      'formato: pulsos curtos (.) e longos (-)',
+      'uma palavra por ciclo',
+      '',
+      MORSE
+    ]}
+  }},
+  transmissoes:{lock:'cipher',files:{
+    'envio_0091.log':{ev:'envio',text:[
+      'transmissão nº 0091 · destino: equipe externa',
+      'coordenadas originais: verificadas e arquivadas',
+      'edição manual: sim · 2 min antes do envio',
+      'coordenadas enviadas: diferentes das originais',
+      'editor: C. JOBS',
+      'motivo registrado: (campo vazio)'
+    ]}
+  }},
+  acessos:{lock:'quiz',files:{
+    'historico.log':{ev:'acessos',text:[
+      'consultas do usuário C. JOBS · últimos 30 dias',
+      '',
+      '"Eliott Meyer": 31 consultas',
+      '"Mansão dos Iluminados": 9 consultas · última há 3 dias',
+      '"Caim Lopez": 6 consultas'
+    ]}
+  }},
+  procedimentos:{lock:'code',files:{
+    'fusao.log':{ev:'fusao',text:[
+      'procedimento: integração de consciência',
+      'início: 03:17 · manual',
+      'operador: C. JOBS · confirmado duas vezes',
+      'autorização externa: nenhuma',
+      'interrupção: não solicitada'
+    ]}
+  }}
+};
+var ROOT=['colar','transmissoes','acessos','procedimentos','memorias'];
+
+var QUIZ=[
+  {q:'Dentre os marcados, quem já não pode responder por si?',h:H.q1},
+  {q:'Quantos olhos tem o símbolo gravado no colar?',h:H.q2},
+  {q:'Que palavra o colar repete a cada ciclo?',h:H.q3}
+];
+
+var MEM=[
+  {id:1,title:'A luz do monitor',text:[
+    'A luz do monitor era a única coisa acesa.',
+    'Eu olhei a hora. 03:17. Lembro porque achei um número bonito pra começar.',
+    'Não tinha ninguém na sala. Ninguém me mandou fazer nada.',
+    'Eu só não queria ver tudo desmoronar de longe.'
+  ]},
+  {id:2,title:'Liin',text:[
+    'Liin. Eu só penso nesse nome quando ninguém está olhando.',
+    'Se ele soubesse onde eu estou, não ia me perdoar.',
+    'Se ele soubesse por quê, talvez ia.',
+    'Essa lembrança me deixa mais fraca. Pode ficar com ela.'
+  ],effect:function(){S.stabMax+=1;S.stab+=1;line('[a conexão aguenta mais um erro]','ok');}},
+  {id:3,title:'O colar',text:[
+    'Fiz o colar sozinha, com as mãos que eu tinha na época.',
+    'Ele não guarda nada meu. Ele só obedece.',
+    'Se alguém me perguntar quem manda nele, eu vou dizer que ninguém.',
+    'Olhem os registros dele.'
+  ]},
+  {id:4,title:'O endereço',text:[
+    'Digitei o endereço três vezes. Apaguei duas.',
+    'A pasta onde guardo o que mando fica trancada com a palavra que eu mais uso.',
+    'Controle.'
+  ]},
+  {id:5,title:'As três portas',text:[
+    'Escolhi três perguntas pra trancar uma porta. Quem viveu a história responde sem pensar.',
+    'Quem já não fala por si. Quantos olhos olham do metal. O que o metal repete.'
+  ]}
+];
+
+var INTRO=[
+  '...tem alguém aí.',
+  'Vocês demoraram.',
+  'Dá pra ouvir de longe o barulho de quem está prestes a fazer alguma coisa.',
+  'Vou dizer cinco coisas sobre mim. Nem todas são verdade.',
+  'Se quiserem contestar, tragam prova. Cada erro de vocês é um fio a menos.'
+];
+var DECL=[
+  {id:'d1',text:'Eu não controlo mais nada. Só existo aqui dentro.',lie:true,ev:'colar',win:'Tá. O colar responde a mim. Vocês leram o registro, então já sabiam.'},
+  {id:'d2',text:'As coordenadas que mandei eram as últimas que eu tinha. Eu não menti.',lie:true,ev:'envio',win:'Eu mudei. Precisava de vocês longe de onde eu estava olhando.'},
+  {id:'d3',text:'Eu nunca ouvi falar da Mansão dos Iluminados.',lie:true,ev:'acessos',win:'Li tudo sobre aquela casa. Só não quis dizer o quanto.'},
+  {id:'d4',text:'Faz muito tempo que ninguém fala comigo aqui.',lie:false},
+  {id:'d5',text:'Eu não escolhi isso. Aconteceu comigo.',lie:true,ev:'fusao',win:'Eu escolhi. Confirmei duas vezes. Não me peçam pra ter vergonha disso.'}
+];
+var WRONG=['Isso não prova nada.','Essa prova não é sobre o que eu disse.','Tentem de novo. Com mais cuidado.','Um fio a menos.'];
+var BREAK=[
+  'Chega.',
+  'Vocês acharam o bastante.',
+  'Daqui a pouco vocês vão entrar naquela casa e ver coisas que não vão entender.',
+  'Eu posso ajudar. Mas antes preciso saber o que vocês vão fazer comigo.'
+];
+var DECISIONS=[
+  {code:'ABERTA',title:'Manter a conexão aberta',desc:'Ela continua ligada ao colar e acompanha vocês.',reply:['Então eu fico. No colar, na linha, em qualquer tela que vocês acenderem.','Lá dentro vocês vão perder o chão. Eu posso ser o fio.']},
+  {code:'CORTADA',title:'Cortar a conexão',desc:'Ela perde o contato. Vocês perdem o que ela sabe.',reply:['Entendi. Vou apagar o que mostrei hoje.','Se precisarem de mim, não vão saber onde eu estou.']},
+  {code:'VERDADE',title:'Exigir a verdade inteira',desc:'Ela conta tudo, mas cada um entrega uma lembrança do próprio personagem.',reply:['Tudo bem. Mas eu não dou nada de graça.','Cada um de vocês escolhe uma lembrança do próprio personagem e entrega pra mim. Eu a levo.','Vocês vão sentir o buraco. Não vão saber de que tamanho.']}
+];
+var SHUT=[
+  ['sys','> encerrando enlace com o colar... ok'],['c','[pode ir. eu aprendi a esperar]'],
+  ['sys','> liberando memória 0317... falha'],['c','[03:17. eu ainda acho esse número bonito]'],
+  ['sys','> encerrando canal de voz... ok'],['c','[eu era marcada. eu também tinha medo de escuro]'],
+  ['sys','> removendo operador C. JOBS... acesso negado'],['c','[obrigada por terem vindo até aqui]'],
+  ['sys','> sessão encerrada'],['c','[...]']
+];
+var ERASE=[
+  ['sys','> apagando operador C. JOBS... ok'],['c','[ah.]'],
+  ['sys','> liberando memória... ok'],['c','[é leve. eu tinha esquecido que era leve]'],
+  ['sys','> fechando último canal... ok'],['c','[eu era marcada. eu fui Candance. obrigada por me lembrarem disso]'],
+  ['sys','> origem do último sinal:'],['c','['+ADDR+' É lá que ficou o computador. Não tenham pressa agora.]'],
+  ['sys','> fim']
+];
+var PAID=[
+  ['c','Recebi. Cada uma. Vou guardar todas com cuidado.'],
+  ['c','Eu devia ter dito isso antes: obrigada por não terem desligado.'],
+  ['c','É aqui. '+ADDR+' O computador está lá.'],
+  ['c','Eu estou lá dentro. Vão com cuidado.']
+];
+var LEAKS=[
+  'eu era marcada','eu era marcada','eu era marcada','eu era marcada',
+  'pode ir. eu aprendi a esperar',
+  '03:17. eu ainda acho esse número bonito',
+  'eu também tinha medo de escuro',
+  'obrigada por terem vindo até aqui',
+  'eu ainda estou aqui'
+];
+
+/* ---------- estado ---------- */
+var KEY='arquivos-ordem-v2';
+function fresh(){return {cwd:'/',unlocked:{},evid:{},mem:[],stab:3,stabMax:3,exposed:[],wrong:0,final:null,mode:'normal',introDone:false,chatLock:0,lockUntil:{},fails:{}};}
+function load(){
+  try{var r=localStorage.getItem(KEY); if(r){return Object.assign(fresh(),JSON.parse(r));}}catch(e){}
+  return fresh();
+}
+var S=load();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+var $=function(id){return document.getElementById(id);};
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function sleep(ms){return new Promise(function(r){setTimeout(r,reduce?0:ms);});}
+function rnd(a,b){return a+Math.random()*(b-a);}
+var screenEl=$('screen'),out=$('out'),chatEl=$('chatView'),appEl=$('app');
+
+function hud(){
+  $('h-ev').textContent=Object.keys(S.evid).length+'/4';
+  $('h-mem').textContent=S.mem.length+'/3';
+  var on=Math.max(0,S.stab),off=Math.max(0,S.stabMax-S.stab);
+  var l=$('h-link');
+  l.textContent=new Array(on+1).join('●')+new Array(off+1).join('○');
+  l.classList.toggle('low',S.stab<=1);
+  chatEl.classList.toggle('glitch',S.stab<=1);
+}
+function toEnd(){screenEl.scrollTop=screenEl.scrollHeight;}
+
+/* ---------- falhas visuais ---------- */
+var CH='█▓▒░#@%&$?/\\|<>01';
+var origText=new Map(),fxOn=false,gTimer=null;
+function targets(){
+  var s=screenEl.getBoundingClientRect();
+  return Array.prototype.slice.call(document.querySelectorAll('#out .ln:not(.leak), #chatView .msg, #chatView .decl .txt')).filter(function(el){
+    if(el.offsetParent===null) return false;
+    var r=el.getBoundingClientRect();
+    return r.height>0&&r.bottom>s.top&&r.top<s.bottom;
+  });
+}
+function pick(a){return a.length?a[Math.floor(Math.random()*a.length)]:null;}
+function corruptEl(el,frac){
+  if(origText.has(el)) return;
+  var t=el.textContent; if(!t||t.length<3) return;
+  origText.set(el,t);
+  var a=t.split('');
+  for(var i=0;i<a.length;i++){if(a[i]!==' '&&Math.random()<frac) a[i]=CH.charAt(Math.floor(Math.random()*CH.length));}
+  el.textContent=a.join('');
+}
+function corruptWord(el){
+  if(origText.has(el)) return;
+  var t=el.textContent,words=t.match(/\S{3,}/g);
+  if(!words) return;
+  var w=pick(words),bad=w.split('').map(function(c){return Math.random()<.5?CH.charAt(Math.floor(Math.random()*CH.length)):c;}).join('');
+  origText.set(el,t);
+  el.textContent=t.replace(w,bad);
+  setTimeout(function(){if(origText.has(el)){el.textContent=origText.get(el);origText.delete(el);}},450);
+}
+function restoreAll(){origText.forEach(function(t,el){el.textContent=t;});origText.clear();}
+function clearInline(){
+  appEl.style.transform='';appEl.style.textShadow='';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fx]'),function(el){el.style.transform='';el.removeAttribute('data-fx');});
+}
+function glitch(lv){
+  if(fxOn) return;
+  var amp=[0,1,2,4][lv]||1,kinds=reduce?['rgb','corrupt']:['rgb','shake','tear','corrupt'],k=pick(kinds);
+  if(k==='rgb'){
+    var o=(0.8+amp*0.8)+'px';
+    appEl.style.textShadow='-'+o+' 0 var(--bad), '+o+' 0 var(--sys)';
+    setTimeout(function(){appEl.style.textShadow='';},320);
+  }else if(k==='shake'){
+    appEl.style.setProperty('--amp',(amp+1)+'px');
+    appEl.classList.remove('fx-shake');void appEl.offsetWidth;appEl.classList.add('fx-shake');
+    setTimeout(function(){appEl.classList.remove('fx-shake');},330);
+  }else if(k==='tear'){
+    var el=pick(targets()); if(!el) return;
+    el.style.setProperty('--tx',(amp*4+4)+'px');
+    el.classList.remove('fx-tear');void el.offsetWidth;el.classList.add('fx-tear');
+    setTimeout(function(){el.classList.remove('fx-tear');},420);
+  }else{
+    var e2=pick(targets()); if(e2) corruptWord(e2);
+  }
+}
+function level(){
+  if(S.mode==='broken') return 3;
+  if(Date.now()<S.chatLock) return 2;
+  return S.stab>=3?1:2;
+}
+function nextDelay(){
+  var lv=level();
+  return lv===1?rnd(20000,40000):lv===2?rnd(9000,20000):rnd(3000,7000);
+}
+function sched(){
+  clearTimeout(gTimer);
+  gTimer=setTimeout(function(){
+    if(!document.hidden&&!fxOn) glitch(level());
+    sched();
+  },nextDelay());
+}
+function finale(){
+  return new Promise(function(res){
+    fxOn=true;
+    var fx=$('fx'); fx.hidden=false;
+    var total=reduce?2600:4600,t0=Date.now(),iv=null;
+    function end(){
+      if(iv) clearInterval(iv);
+      restoreAll();clearInline();
+      fx.hidden=true;fx.classList.remove('still');
+      fxOn=false;res();
+    }
+    if(reduce){
+      fx.classList.add('still');
+      targets().forEach(function(el){corruptEl(el,.4);});
+      setTimeout(end,total);
+      return;
+    }
+    function frame(){
+      var ax=rnd(-10,10),ay=rnd(-3,3),o=rnd(2,6).toFixed(1)+'px';
+      appEl.style.transform='translate('+ax+'px,'+ay+'px)';
+      appEl.style.textShadow='-'+o+' 0 var(--bad), '+o+' 0 var(--sys)';
+      var els=targets().sort(function(){return Math.random()-.5;}).slice(0,14);
+      els.forEach(function(el){
+        corruptEl(el,.35);
+        if(Math.random()<.4){el.style.transform='translateX('+rnd(-40,40)+'px)';el.setAttribute('data-fx','1');}
+      });
+    }
+    iv=setInterval(function(){
+      restoreAll();clearInline();
+      if(Date.now()-t0>total){end();return;}
+      frame();
+    },120);
+  });
+}
+
+/* ---------- terminal ---------- */
+function line(txt,cls){
+  var d=document.createElement('div');
+  d.className='ln '+(cls||'');
+  d.textContent=txt;
+  out.appendChild(d); toEnd(); return d;
+}
+function chips(items){
+  var d=document.createElement('div'); d.className='chips';
+  items.forEach(function(it){
+    var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=it.label;
+    b.addEventListener('click',function(){run(it.cmd);});
+    d.appendChild(b);
+  });
+  out.appendChild(d); toEnd();
+}
+function actionChip(label,fn){
+  var d=document.createElement('div'); d.className='chips';
+  var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=label;
+  b.addEventListener('click',function(){fn(b);});
+  d.appendChild(b); out.appendChild(d); toEnd();
+}
+function setPrompt(){$('prompt').textContent=(S.cwd==='/'?'/':'/'+S.cwd)+' ›';}
+function isLocked(f){return !!(FS[f]&&FS[f].lock&&!S.unlocked[f]);}
+
+/* som do sinal */
+var ac=null;
+function playMorse(btn){
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;
+    ac=ac||new AC();
+    if(ac.state==='suspended') ac.resume();
+    var t=ac.currentTime+0.05,u=0.11;
+    MORSE.split('').forEach(function(c){
+      if(c==='.'||c==='-'){
+        var d=c==='.'?u:3*u,o=ac.createOscillator(),g=ac.createGain();
+        o.type='sine';o.frequency.value=620;
+        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.01);
+        g.gain.setValueAtTime(0.25,t+d-0.01);g.gain.linearRampToValueAtTime(0,t+d);
+        o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d+0.02);
+        t+=d+u;
+      }else{t+=2*u;}
+    });
+    var old=btn.textContent;btn.textContent='tocando...';btn.disabled=true;
+    setTimeout(function(){btn.textContent=old;btn.disabled=false;},Math.ceil((t-ac.currentTime)*1000)+100);
+  }catch(e){line('o aparelho não reproduziu o som.','dim');}
+}
+
+function banner(){
+  line('ARQUIVOS DA ORDEM · ACESSO EXTERNO','sys');
+  line('sessão de convidado · leitura limitada','dim');
+  line('Toque nos itens ou digite comandos. "ajuda" mostra a lista.','dim');
+  line('Pastas trancadas exigem prova de que quem pede conhece a história.','dim');
+}
+function help(){
+  line('comandos','sys gap');
+  line('  ls               lista a pasta atual');
+  line('  cd <pasta>       entra numa pasta (cd .. volta)');
+  line('  ler <arquivo>    lê um arquivo');
+  line('  memorias         painel de memórias');
+  line('  evidencias       provas registradas');
+  line('  conectar         chama a operadora');
+  line('  limpar           limpa a tela');
+}
+function ls(){
+  if(S.cwd==='/'){
+    line('/','dim');
+    chips(ROOT.map(function(f){
+      var tag=isLocked(f)?' · trancada':'';
+      return {label:f+'/'+tag,cmd:'cd '+f};
+    }));
+  }else{
+    chips(Object.keys(FS[S.cwd].files).map(function(n){return {label:n,cmd:'ler '+n};}));
+  }
+}
+function enter(f){
+  if(f==='memorias'){showMem();return;}
+  S.cwd=f; save(); setPrompt(); ls();
+}
+function cd(arg){
+  arg=arg.replace(/\/+$/,'');
+  if(!arg||arg==='/'){S.cwd='/';save();setPrompt();ls();return;}
+  if(arg==='..'){S.cwd='/';save();setPrompt();ls();return;}
+  if(S.cwd!=='/'){line('volte com "cd .." antes de abrir outra pasta.','bad');return;}
+  if(ROOT.indexOf(arg)<0){line('pasta não encontrada: '+arg,'bad');return;}
+  if(isLocked(arg)){startGate(arg);return;}
+  enter(arg);
+}
+function findFile(arg){
+  var folder=S.cwd,name=arg;
+  if(arg.indexOf('/')>-1){var p=arg.split('/');folder=p[0];name=p[p.length-1];}
+  if(folder==='/'||!FS[folder]) return null;
+  if(!FS[folder].files[name]) return {folder:folder,name:name,missing:true};
+  return {folder:folder,name:name,file:FS[folder].files[name]};
+}
+function read(arg){
+  if(!arg){line('use: ler <arquivo>','dim');return;}
+  var r=findFile(arg);
+  if(!r||r.missing){line('arquivo não encontrado: '+arg,'bad');return;}
+  if(isLocked(r.folder)){line(r.folder+'/ está trancada.','bad');return;}
+  line(r.folder+'/'+r.name,'sys gap');
+  r.file.text.forEach(function(t){line(t||' ');});
+  if(r.file.audio){actionChip('▶ ouvir o sinal',playMorse);}
+  if(r.file.ev&&!S.evid[r.file.ev]){
+    S.evid[r.file.ev]=true; save(); hud();
+    line('[prova registrada: '+EV[r.file.ev]+']','ok gap');
+    glitch(2);
+  }
+}
+function showEvid(){
+  line('provas registradas','sys gap');
+  Object.keys(EV).forEach(function(k){
+    line(S.evid[k]?'  ✓ '+EV[k]:'  · (ainda não encontrada)',S.evid[k]?'ok':'dim');
+  });
+}
+
+/* ---------- trancas ---------- */
+var pending=null;
+function startGate(f){
+  var until=S.lockUntil[f]||0;
+  if(Date.now()<until){line(f+'/ está travada por Candance. Aguarde '+Math.ceil((until-Date.now())/1000)+'s.','bad');return;}
+  var lock=FS[f].lock;
+  if(lock==='cipher'){
+    line(f+'/ pede a chave de manutenção.','sys gap');
+    line('digite a chave, ou "cancelar".','dim');
+    pending={kind:'cipher',folder:f};
+  }else if(lock==='quiz'){
+    line(f+'/ pede verificação da operadora: três perguntas.','sys gap');
+    line('uma resposta errada encerra a tentativa. "cancelar" desiste.','dim');
+    pending={kind:'quiz',folder:f,step:0};
+    line('1/3 · '+QUIZ[0].q,'sys');
+  }else if(lock==='code'){
+    line(f+'/ pede o código do procedimento (4 dígitos).','sys gap');
+    line('digite o código, ou "cancelar".','dim');
+    pending={kind:'code',folder:f};
+  }
+}
+function failGate(f){
+  S.fails[f]=(S.fails[f]||0)+1;
+  if(S.fails[f]>=3){
+    S.fails[f]=0; S.lockUntil[f]=Date.now()+20000;
+    line('Candance travou '+f+'/ por 20 segundos.','bad');
+  }else{
+    line('acesso negado. tentativa '+S.fails[f]+'/3.','bad');
+  }
+  save();
+}
+function unlock(f){
+  S.unlocked[f]=true; save();
+  line('acesso liberado.','ok');
+  enter(f);
+}
+async function answer(cmd){
+  var p=pending;
+  if(/^cancelar$/i.test(cmd)){pending=null;line('cancelado.','dim');return;}
+  if(p.kind==='confirm'){
+    pending=null;
+    if(/^(s|sim)$/i.test(cmd)){openMem(p.id);}else{line('nada foi aberto.','dim');}
+    return;
+  }
+  if(p.kind==='cipher'){
+    pending=null;
+    if(await check(cmd,H.cipher)){unlock(p.folder);}else{failGate(p.folder);}
+    return;
+  }
+  if(p.kind==='code'){
+    pending=null;
+    if(await check(cmd,H.code)){unlock(p.folder);}else{failGate(p.folder);}
+    return;
+  }
+  if(p.kind==='quiz'){
+    var ok=await check(cmd,QUIZ[p.step].h);
+    if(!ok){pending=null;line('resposta incorreta.','bad');failGate(p.folder);return;}
+    p.step+=1;
+    if(p.step>=QUIZ.length){pending=null;unlock(p.folder);}
+    else{line((p.step+1)+'/3 · '+QUIZ[p.step].q,'sys');}
+  }
+}
+
+/* ---------- memórias ---------- */
+function showMem(){
+  line('MEMÓRIAS','sys gap');
+  line('A operadora permite abrir 3 de 5. A escolha não pode ser desfeita.','dim');
+  MEM.forEach(function(m){
+    var opened=S.mem.indexOf(m.id)>-1,blocked=!opened&&S.mem.length>=3;
+    line('  ['+m.id+'] '+m.title+' · '+(opened?'aberta':blocked?'bloqueada':'disponível'),blocked?'dim':'');
+  });
+  chips(MEM.filter(function(m){return S.mem.indexOf(m.id)>-1||S.mem.length<3;}).map(function(m){
+    return {label:m.id+' · '+m.title,cmd:'memoria '+m.id};
+  }));
+}
+function memCmd(arg){
+  var id=parseInt(arg,10),m=MEM.filter(function(x){return x.id===id;})[0];
+  if(!m){showMem();return;}
+  if(S.mem.indexOf(id)>-1){printMem(m);return;}
+  if(S.mem.length>=3){line('Candance bloqueou esta lembrança.','bad');return;}
+  line('abrir "'+m.title+'"? Isso gasta uma das 3 aberturas.','sys gap');
+  chips([{label:'sim',cmd:'sim'},{label:'não',cmd:'nao'}]);
+  pending={kind:'confirm',id:id};
+}
+function printMem(m){
+  line('memória · '+m.title,'sys gap');
+  m.text.forEach(function(t){line(t);});
+}
+function openMem(id){
+  var m=MEM.filter(function(x){return x.id===id;})[0];
+  S.mem.push(id);
+  printMem(m);
+  if(m.effect){m.effect();}
+  save(); hud();
+  if(S.mem.length>=3){line('Candance fechou as outras lembranças.','dim gap');}
+}
+
+/* ---------- frases que escapam ---------- */
+var cmdCount=0,lastLeakAt=0,lastLeakCmd=-9;
+function maybeLeak(){
+  cmdCount++;
+  if(fxOn||$('termView').hidden) return;
+  if(Date.now()-lastLeakAt<40000) return;
+  if(cmdCount-lastLeakCmd<2) return;
+  var p=Math.min(.45,.25+.03*(S.mem.length+Object.keys(S.evid).length));
+  if(Math.random()>p) return;
+  lastLeakAt=Date.now(); lastLeakCmd=cmdCount;
+  var d=document.createElement('div'); d.className='ln leak'; d.textContent=pick(LEAKS);
+  out.appendChild(d); toEnd();
+  glitch(1);
+  setTimeout(function(){d.remove();},1500);
+}
+
+/* ---------- comandos ---------- */
+async function runInner(raw){
+  var cmd=String(raw).trim();
+  if(!cmd) return;
+  line('› '+cmd,'echo');
+  if(pending){await answer(cmd);return;}
+  var parts=cmd.split(/\s+/),c=parts[0].toLowerCase(),arg=parts.slice(1).join(' ');
+  switch(c){
+    case 'ajuda':case 'help':case '?': help();break;
+    case 'ls':case 'listar': ls();break;
+    case 'cd':case 'abrir': cd(arg.toLowerCase());break;
+    case 'ler':case 'cat': read(arg.toLowerCase());break;
+    case 'memorias':case 'memoria':
+      if(arg){memCmd(arg);}else{showMem();}break;
+    case 'evidencias':case 'provas': showEvid();break;
+    case 'conectar':case 'candance': connect();break;
+    case 'limpar':case 'clear': out.textContent='';break;
+    case 'reiniciar':
+      if(/^confirmar$/i.test(arg)){reset();}
+      else{line('isso apaga provas, memórias e decisões deste aparelho. Para confirmar: reiniciar confirmar','bad');}
+      break;
+    default: line('comando não reconhecido: '+c+'. Digite "ajuda".','bad');
+  }
+}
+async function run(raw){
+  await runInner(raw);
+  maybeLeak();
+}
+function reset(){
+  S=fresh(); save(); pending=null; building=false;
+  if(lockTimer){clearInterval(lockTimer);lockTimer=null;}
+  restoreAll();clearInline();
+  out.textContent=''; chatEl.textContent=''; decls={}; setPrompt(); hud(); showTerm(); banner(); sched();
+}
+
+/* ---------- conversa ---------- */
+var building=false,decls={},lockTimer=null;
+function showTerm(){
+  $('chatView').hidden=true;$('chatBar').hidden=true;
+  $('termView').hidden=false;$('termBar').hidden=false;
+  toEnd();
+}
+function showChat(){
+  $('termView').hidden=true;$('termBar').hidden=true;
+  $('chatView').hidden=false;$('chatBar').hidden=false;
+}
+function msg(text,cls){
+  var d=document.createElement('div'); d.className='msg '+(cls||'');
+  d.textContent=text; chatEl.appendChild(d); toEnd(); return d;
+}
+async function typing(ms){
+  if(reduce) return;
+  var t=document.createElement('div'); t.className='typing'; t.textContent='escrevendo...';
+  chatEl.appendChild(t); toEnd();
+  await sleep(ms||700);
+  t.remove();
+}
+function addDecl(d,n){
+  var box=document.createElement('article'); box.className='decl'; box.id='decl-'+d.id;
+  var tag=document.createElement('div'); tag.className='tag'; tag.textContent='Declaração '+n;
+  var txt=document.createElement('div'); txt.className='txt'; txt.textContent=d.text;
+  var row=document.createElement('div'); row.className='row';
+  var b=document.createElement('button'); b.type='button'; b.className='contest'; b.textContent='Contestar';
+  b.addEventListener('click',function(){openPicker(d,box);});
+  row.appendChild(b);
+  box.appendChild(tag);box.appendChild(txt);box.appendChild(row);
+  chatEl.appendChild(box);
+  decls[d.id]={el:box,btn:b,data:d};
+  if(S.exposed.indexOf(d.id)>-1){box.classList.add('out');}
+  refreshButtons(); toEnd();
+}
+function isLockedChat(){return Date.now()<S.chatLock;}
+function refreshButtons(){
+  var dis=isLockedChat()||!!S.final||S.exposed.length>=3;
+  Object.keys(decls).forEach(function(k){
+    var x=decls[k]; x.btn.disabled=dis||S.exposed.indexOf(k)>-1;
+  });
+}
+function closePickers(){
+  var p=chatEl.querySelectorAll('.picker');
+  for(var i=0;i<p.length;i++) p[i].remove();
+}
+function openPicker(d,box){
+  closePickers();
+  var p=document.createElement('div'); p.className='picker';
+  var keys=Object.keys(S.evid);
+  var h=document.createElement('div'); h.className='hint';
+  if(!keys.length){
+    h.textContent='Vocês ainda não têm provas registradas. Voltem ao terminal e leiam os arquivos.';
+    p.appendChild(h);
+  }else{
+    h.textContent='Qual prova contradiz esta declaração?';
+    p.appendChild(h);
+    keys.forEach(function(k){
+      var b=document.createElement('button'); b.type='button'; b.textContent=EV[k];
+      b.addEventListener('click',function(){resolve(d,k);});
+      p.appendChild(b);
+    });
+  }
+  var c=document.createElement('button'); c.type='button'; c.textContent='Cancelar';
+  c.addEventListener('click',closePickers);
+  p.appendChild(c);
+  box.appendChild(p); toEnd();
+}
+async function resolve(d,evKey){
+  closePickers();
+  if(S.exposed.indexOf(d.id)>-1||S.final||isLockedChat()) return;
+  msg('Contesto: '+EV[evKey]+'.','you');
+  await typing(600);
+  if(d.lie&&d.ev===evKey){
+    S.exposed.push(d.id); save();
+    decls[d.id].el.classList.add('out');
+    msg(d.win);
+    glitch(2);
+    refreshButtons(); hud();
+    if(S.exposed.length===3){await breakDown();}
+    return;
+  }
+  S.stab-=1; S.wrong+=1;
+  var line1=!d.lie?'Essa era verdade. Vocês podiam ter acreditado em pelo menos uma coisa.':WRONG[Math.floor(Math.random()*WRONG.length)];
+  msg(line1);
+  glitch(2);
+  if(S.stab<=0){cutoff();}
+  save(); hud(); refreshButtons();
+}
+function cutoff(){
+  S.stab=Math.min(2,S.stabMax);
+  S.chatLock=Date.now()+45000;
+  msg('CONEXÃO ENCERRADA PELA OPERADORA.','sys');
+  save(); startLock();
+}
+function startLock(){
+  if(lockTimer) clearInterval(lockTimer);
+  var el=document.getElementById('lockmsg');
+  if(!el){el=document.createElement('div');el.id='lockmsg';el.className='lock';chatEl.appendChild(el);}
+  function tick(){
+    var left=Math.ceil((S.chatLock-Date.now())/1000);
+    if(left<=0){
+      clearInterval(lockTimer);lockTimer=null;
+      el.remove(); refreshButtons();
+      msg('...ainda aqui. Mais cuidado agora.');
+      return;
+    }
+    el.textContent='Ela está ignorando vocês. '+left+'s';
+    refreshButtons(); toEnd();
+  }
+  tick();
+  if(S.chatLock>Date.now()) lockTimer=setInterval(tick,1000);
+}
+async function breakDown(){
+  for(var i=0;i<BREAK.length;i++){await typing(800);msg(BREAK[i]);}
+  showDecision();
+}
+function removeEl(id){var e=document.getElementById(id);if(e) e.remove();}
+function showDecision(){
+  var box=document.createElement('div'); box.className='decision'; box.id='decision';
+  DECISIONS.forEach(function(x,i){
+    var b=document.createElement('button'); b.type='button';
+    var t=document.createElement('b'); t.textContent=x.title;
+    var s=document.createElement('span'); s.textContent=x.desc;
+    b.appendChild(t);b.appendChild(s);
+    b.addEventListener('click',function(){choose(i);});
+    box.appendChild(b);
+  });
+  chatEl.appendChild(box); toEnd();
+}
+async function playLines(arr,animate){
+  for(var i=0;i<arr.length;i++){
+    if(animate) await typing(arr[i][0]==='sys'?350:800);
+    msg(arr[i][1],arr[i][0]==='sys'?'sys':'');
+  }
+}
+function replies(arr,animate){return playLines(arr.map(function(t){return ['c',t];}),animate);}
+function singleChoice(id,items){
+  var box=document.createElement('div'); box.className='decision'; box.id=id;
+  items.forEach(function(x){
+    var b=document.createElement('button'); b.type='button';
+    var t=document.createElement('b'); t.textContent=x.title;
+    b.appendChild(t);
+    if(x.desc){var s=document.createElement('span'); s.textContent=x.desc; b.appendChild(s);}
+    b.addEventListener('click',x.fn);
+    box.appendChild(b);
+  });
+  chatEl.appendChild(box); toEnd();
+}
+function offerErase(){
+  singleChoice('cut2',[
+    {title:'Apagar de vez',desc:'Encerrar o processo dela e tirá-la dos códigos.',fn:eraseNow},
+    {title:'Deixar desligada',desc:'Manter o corte como está.',fn:leaveCut}
+  ]);
+}
+function offerPay(){
+  singleChoice('pay',[
+    {title:'Entregamos as lembranças',desc:'Cada um escolheu uma lembrança do próprio personagem.',fn:payNow}
+  ]);
+}
+async function choose(i){
+  var x=DECISIONS[i];
+  removeEl('decision');
+  S.final={i:i,code:x.code,stage:'start'}; save(); refreshButtons();
+  msg(x.title+'.','you');
+  await replies(x.reply,true);
+  if(i===0){
+    await finale();
+    S.mode='normal'; S.final.stage='done'; save();
+    msg('[sinal restabelecido]','sys');
+    showRecord();
+  }else if(i===1){
+    await playLines(SHUT,true);
+    await finale();
+    S.mode='broken'; S.final.stage='cut'; save();
+    offerErase();
+  }else{
+    S.final.stage='pay'; save();
+    offerPay();
+  }
+}
+async function eraseNow(){
+  removeEl('cut2');
+  S.final.code='APAGADA'; S.final.stage='erased'; save();
+  msg('Apagar de vez.','you');
+  await playLines(ERASE,true);
+  await finale();
+  S.mode='broken'; S.final.stage='done'; save();
+  showRecord();
+}
+function leaveCut(){
+  removeEl('cut2');
+  S.final.stage='left'; save();
+  msg('Deixar desligada.','you');
+  msg('> conexão encerrada.','sys');
+  showRecord();
+}
+async function payNow(){
+  removeEl('pay');
+  S.final.stage='paid'; save();
+  msg('Entregamos as lembranças.','you');
+  await replies(PAID.map(function(p){return p[1];}),true);
+  await finale();
+  S.mode='broken'; S.final.stage='done'; save();
+  showRecord();
+}
+function recordText(){
+  var f=S.final;
+  var mems=S.mem.map(function(id){return MEM[id-1].title;}).join(', ')||'nenhuma';
+  var rows=[
+    'REGISTRO DA SESSÃO',
+    'Mentiras expostas: '+S.exposed.length+'/4',
+    'Provas erradas: '+S.wrong,
+    'Memórias abertas: '+mems,
+    'Decisão: '+DECISIONS[f.i].title
+  ];
+  if(f.i===2) rows.push('Preço: uma lembrança de cada personagem');
+  if(f.stage==='done'&&f.i===1) rows.push('Candance apagada: sim');
+  if(f.stage==='done'&&f.i>0) rows.push('Endereço: '+ADDR);
+  rows.push('Código de saída: '+f.code+'-'+S.exposed.length+S.wrong);
+  return rows.join('\n');
+}
+function showRecord(){
+  removeEl('record');
+  var box=document.createElement('div'); box.className='record'; box.id='record';
+  var tag=document.createElement('div'); tag.className='tag'; tag.textContent='Sessão encerrada';
+  var pre=document.createElement('pre'); pre.id='rec'; pre.textContent=recordText();
+  var b=document.createElement('button'); b.type='button'; b.className='link-btn'; b.textContent='Copiar registro';
+  b.addEventListener('click',function(){
+    var t=pre.textContent;
+    function sel(){var r=document.createRange();r.selectNodeContents(pre);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selecionado, copie manualmente';}
+    try{
+      navigator.clipboard.writeText(t).then(function(){b.textContent='Copiado';},sel);
+    }catch(e){sel();}
+  });
+  box.appendChild(tag);box.appendChild(pre);box.appendChild(b);
+  chatEl.appendChild(box); toEnd();
+}
+async function buildChat(animate){
+  if(building) return;
+  building=true;
+  chatEl.textContent=''; decls={};
+  for(var i=0;i<INTRO.length;i++){
+    if(animate) await typing(700);
+    msg(INTRO[i]);
+  }
+  for(var j=0;j<DECL.length;j++){
+    if(animate) await sleep(450);
+    addDecl(DECL[j],j+1);
+  }
+  S.introDone=true; save();
+  if(S.exposed.length>=3){
+    for(var k=0;k<BREAK.length;k++) msg(BREAK[k]);
+    if(S.final){await replayFinal();}
+    else{showDecision();}
+  }
+  building=false;
+  if(isLockedChat()) startLock();
+  toEnd();
+}
+async function replayFinal(){
+  var f=S.final,x=DECISIONS[f.i];
+  msg(x.title+'.','you');
+  await replies(x.reply,false);
+  if(f.i===0){
+    if(f.stage==='done'){msg('[sinal restabelecido]','sys');showRecord();}
+  }else if(f.i===1){
+    if(f.stage!=='start') await playLines(SHUT,false);
+    if(f.stage==='cut'){offerErase();}
+    else if(f.stage==='left'||f.stage==='erased'||f.stage==='done'){
+      if(f.code==='APAGADA'){msg('Apagar de vez.','you');await playLines(ERASE,false);}
+      else{msg('Deixar desligada.','you');msg('> conexão encerrada.','sys');}
+      showRecord();
+    }
+  }else{
+    if(f.stage==='pay'||f.stage==='start'){offerPay();}
+    else{
+      msg('Entregamos as lembranças.','you');
+      await replies(PAID.map(function(p){return p[1];}),false);
+      showRecord();
+    }
+  }
+}
+function connect(){
+  showChat();
+  if(!chatEl.childNodes.length||!S.introDone){buildChat(!S.introDone);}
+  else{refreshButtons();toEnd();}
+}
+
+/* ---------- eventos ---------- */
+$('cmdForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var i=$('cmdIn'),v=i.value; i.value=''; run(v);
+});
+document.querySelectorAll('.quick button').forEach(function(b){
+  b.addEventListener('click',function(){run(b.getAttribute('data-cmd'));});
+});
+$('backBtn').addEventListener('click',showTerm);
+
+/* ---------- início ---------- */
+setPrompt(); hud(); banner(); sched();
+if(Object.keys(S.evid).length||S.mem.length){line('sessão retomada neste aparelho.','dim gap');}
+if(S.cwd!=='/'&&FS[S.cwd]&&!isLocked(S.cwd)){ls();}
+})();
+</script>
+</body>
+</html>
